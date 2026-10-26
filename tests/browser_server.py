@@ -5,6 +5,7 @@ import importlib.util
 import json
 from datetime import date
 from threading import Lock
+from urllib.parse import urlsplit
 
 BASE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("model", BASE / "custom_components/px_account_manager/model.py")
@@ -21,7 +22,15 @@ document.querySelector('px-account-manager').hass={user:{id:'demo-admin',is_admi
 
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/":
+        route = urlsplit(self.path)
+        if route.path == "/phone":
+            body = b'<!doctype html><html><body style="margin:0;background:#ddd"><iframe title="Phone viewport" src="/" style="width:390px;height:760px;border:0;display:block;margin:auto"></iframe></body></html>'
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if route.path == "/":
             body = HTML.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
@@ -63,5 +72,12 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     import os
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--member-count", type=int, default=0)
+    parser.add_argument("--port", type=int, default=8778)
+    options = parser.parse_args()
+    for i in range(options.member_count):
+        ledger.mutate("create_member", {"display_name": f"Demo Member {i+1:02}", "email": f"demo{i+1:02}@example.com"})
     os.chdir(BASE)
-    ThreadingHTTPServer(("127.0.0.1", 8778), Handler).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", options.port), Handler).serve_forever()
