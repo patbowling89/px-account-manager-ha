@@ -4,7 +4,11 @@ A local Home Assistant adaptation of the supplied PX Account Manager Lovable pro
 
 **Public code does not share personal data.** Each installation starts empty and uses its own HA storage, HA administrator login and optional Plex token. See [Privacy and installation isolation](PRIVACY.md). All administrators on the same HA instance can access that instance's records.
 
-**Status: initial test release, version 0.1.0.** The package builds and its billing/Plex behavior is tested with fictional data. It has not been installed in a live Home Assistant instance or tested against a real Plex account.
+**Status: initial test release, version 0.1.1.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing is in progress. Plex operations still need validation against a real account.
+
+## Plex compatibility fix in 0.1.1
+
+The token test now validates `/api/v2/user` directly. Member sync uses the Home/users/sent-invitations XML endpoints used by the maintained Python PlexAPI client, preserves XML children and parses `0`/`1` boolean flags correctly. HTTP 410 is reported as an unavailable endpoint, rather than blaming the token. Pending invites use the explicit cancellation endpoint; accepted friend removal uses the current sharing endpoint. This update retains the existing local ledger and configured Plex token.
 
 ## Features
 
