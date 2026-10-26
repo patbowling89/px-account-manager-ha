@@ -474,7 +474,7 @@ function EditAccountDialog({
               <p className="text-xs text-muted-foreground mb-2">
                 Only members without an account are shown. You can change members later.
               </p>
-              <div className="max-h-48 overflow-y-auto rounded border border-border">
+              <div role="group" aria-label="Available members" className="px-member-list rounded border border-border">
                 {eligibleMembers.map((m) => (
                   <label
                     key={m.id}
@@ -490,8 +490,7 @@ function EditAccountDialog({
                         setSelected(next);
                       }}
                     />
-                    <span className="flex-1">{m.display_name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{m.email}</span>
+                    <span className="min-w-0 flex-1"><span className="block">{m.display_name}</span><span className="block break-all font-mono text-xs text-muted-foreground">{m.email}</span></span>
                   </label>
                 ))}
               </div>
@@ -554,7 +553,7 @@ function ManageMembersDialog({
             Check who belongs to this account. Members already on another account aren't shown.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-80 overflow-y-auto rounded border border-border">
+        <div role="group" aria-label="Account members" className="px-member-list rounded border border-border">
           {eligible.length === 0 ? (
             <p className="p-3 text-sm text-muted-foreground">No eligible members.</p>
           ) : (
@@ -573,8 +572,7 @@ function ManageMembersDialog({
                     setSelected(next);
                   }}
                 />
-                <span className="flex-1">{m.display_name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{m.email}</span>
+                <span className="min-w-0 flex-1"><span className="block">{m.display_name}</span><span className="block break-all font-mono text-xs text-muted-foreground">{m.email}</span></span>
               </label>
             ))
           )}
