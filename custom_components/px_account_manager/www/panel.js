@@ -20220,7 +20220,7 @@ function Hg() {
 	}), m = async () => {
 		try {
 			let e = await r({});
-			e.ok ? F.success(`Plex token works — ${e.userCount} home users`) : F.error(`Plex token failed: ${e.error}`);
+			e.ok ? F.success("Plex token works — account authenticated. Use Sync to load members.") : F.error(`Plex token failed: ${e.error}`);
 		} catch (e) {
 			F.error(e instanceof Error ? e.message : String(e));
 		}
