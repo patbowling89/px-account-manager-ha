@@ -7,6 +7,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from xml.etree import ElementTree as ET
 
 from .model import now
+from .const import VERSION
 
 
 class PlexError(ValueError):
@@ -15,6 +16,29 @@ class PlexError(ValueError):
 
 def identifier(value):
     return quote(str(value), safe="")
+
+
+def plex_bool(value):
+    """Plex XML booleans are strings: bool('0') would incorrectly mean True."""
+    return value is True or (isinstance(value, (str, int)) and str(value).lower() in {"1", "true", "yes"})
+
+
+def xml_records(root, tag):
+    if not ET.iselement(root):
+        raise PlexError("Plex returned an unexpected member-list response; no records were changed")
+    return [dict(element.attrib) for element in root.iter() if element.tag.rsplit("}", 1)[-1].lower() == tag.lower()]
+
+
+def http_error(status):
+    if status == 401:
+        return "Plex rejected the token (HTTP 401). Check that it is a current Plex account token."
+    if status == 403:
+        return "Plex denied this operation (HTTP 403). Check account permissions."
+    if status in {404, 410}:
+        return f"This Plex API endpoint is unavailable (HTTP {status}). Check for an integration update; this does not establish that your token is invalid."
+    if status == 429:
+        return "Plex is rate limiting requests (HTTP 429). Wait before trying again."
+    return f"Plex returned HTTP {status}. The request could not be completed."
 
 
 class PlexClient:
@@ -35,7 +59,7 @@ class PlexClient:
             base = server.rstrip("/")
         if not path.startswith("/") or path.startswith("//"):
             raise PlexError("Invalid Plex API path")
-        headers = {"X-Plex-Token": self.token, "X-Plex-Client-Identifier": "px-account-manager-ha", "X-Plex-Product": "PX Account Manager", "X-Plex-Version": "0.1.0", "Accept": "application/xml" if xml else "application/json"}
+        headers = {"X-Plex-Token": self.token, "X-Plex-Client-Identifier": "px-account-manager-ha", "X-Plex-Product": "PX Account Manager", "X-Plex-Version": VERSION, "Accept": "application/xml" if xml else "application/json"}
         if body is not None:
             headers["Content-Type"] = "application/xml"
         try:
@@ -44,7 +68,7 @@ class PlexClient:
                     if method == "DELETE" and response.status == 404:
                         return {}
                     if response.status >= 300:
-                        raise PlexError(f"Plex returned HTTP {response.status}. Check your token and Plex permissions.")
+                        raise PlexError(http_error(response.status))
                     chunks = []
                     size = 0
                     async for chunk in response.content.iter_chunked(65536):
@@ -72,16 +96,28 @@ class PlexClient:
             raise PlexError("Could not contact Plex or read its response. Check the connection and try Sync before repeating a change.") from None
 
     async def users(self):
-        home = await self.request("/api/v2/home/users")
-        friends = await self.request("/api/v2/friends?includeSharedServers=1")
-        home = home if isinstance(home, list) else home.get("users", [])
-        friends = friends if isinstance(friends, list) else friends.get("friends", [])
+        # These are the XML endpoints used by the maintained Python PlexAPI client.
+        # Fetch every list before returning, so a failure cannot import a partial snapshot.
+        home = xml_records(await self.request("/api/home/users", xml=True), "User")
+        friends = xml_records(await self.request("/api/users/", xml=True), "User")
+        pending = xml_records(await self.request("/api/invites/requested", xml=True), "Invite")
+        # Home may omit emails. Enrich by immutable Plex ID, without merging by name.
+        by_id = {str(user.get("id", "")): user for user in friends if user.get("id")}
         result = []
         for kind, entries in (("home", home), ("friend", friends)):
-            for item in entries:
-                user = item.get("user") or item
-                result.append(dict(id=str(user.get("id") or item.get("id") or ""), email=str(user.get("email") or "").lower(), name=user.get("friendlyName") or user.get("username"), kind=kind, pending=bool(item.get("pending") or item.get("status") == "pending")))
+            for user in entries:
+                if kind == "home":
+                    user = {**by_id.get(str(user.get("id", "")), {}), **{k: v for k, v in user.items() if v != ""}}
+                result.append(dict(id=str(user.get("id") or ""), email=str(user.get("email") or "").lower(), name=user.get("friendlyName") or user.get("username") or user.get("title"), kind=kind, pending=plex_bool(user.get("pending")), flags=None))
+        for invite in pending:
+            flags = {key: int(plex_bool(invite.get(key))) for key in ("friend", "home", "server")}
+            result.append(dict(id=str(invite.get("id") or ""), email=str(invite.get("email") or "").lower(), name=invite.get("friendlyName") or invite.get("username"), kind="home" if flags["home"] else "friend", pending=True, flags=flags))
         return result
+
+    async def cancel_pending(self, hit):
+        if not hit["pending"] or not hit.get("id") or hit.get("flags") is None:
+            raise PlexError("No cancellable pending invite was found. Sync before trying again.")
+        await self.request("/api/invites/requested/" + identifier(hit["id"]) + "?" + urlencode(hit["flags"]), "DELETE")
 
     async def owned(self, require_connection=True):
         resources = await self.request("/api/v2/resources?includeHttps=1&includeRelay=1")
@@ -120,22 +156,28 @@ class PlexClient:
                     await self.request(path + "/" + identifier(shared.get("id")), "DELETE")
         for hit in hits:
             if hit["id"]:
-                path = "/api/home/users/" if kind == "home" else "/api/v2/friends/"
-                await self.request(path + identifier(hit["id"]), "DELETE")
+                if hit["pending"]:
+                    await self.cancel_pending(hit)
+                else:
+                    path = "/api/home/users/" if kind == "home" else "/api/v2/sharings/"
+                    await self.request(path + identifier(hit["id"]), "DELETE")
         return bool(hits)
 
     async def run(self, ledger, args):
         operation = args.get("operation")
         if operation == "test":
-            result = await self.request("/api/v2/home/users")
-            users = result if isinstance(result, list) else result.get("users", [])
-            return {"ok": True, "userCount": len(users)}
+            account = await self.request("/api/v2/user")
+            if not isinstance(account, dict) or not (account.get("id") or account.get("uuid")):
+                raise PlexError("Plex did not return an authenticated account. Check the account token.")
+            # Do not return the account response: it may contain authentication tokens.
+            return {"ok": True, "authenticated": True}
         if operation == "sync":
             entries = await self.users()  # Fail atomically if either list cannot be read.
             dedup = {}
             for entry in entries:
                 key = entry["email"] or entry["id"]
-                if key and (key not in dedup or entry["kind"] == "home"):
+                previous = dedup.get(key)
+                if key and (previous is None or (previous["kind"] == "friend" and entry["kind"] == "home") or (previous["kind"] == entry["kind"] and previous["pending"] and not entry["pending"])):
                     dedup[key] = entry
             updated = imported = 0
             for entry in dedup.values():
@@ -146,7 +188,7 @@ class PlexClient:
                 elif member:
                     updated += 1
                 if member:
-                    member.update(plex_user_id=entry["id"] or None, invite_type=entry["kind"], status="invited" if entry["pending"] else "accepted", updated_at=now(), last_error=None)
+                    member.update(plex_user_id=entry["id"] or None, plex_invite_id=entry["id"] if entry["pending"] else None, invite_type=entry["kind"], status="invited" if entry["pending"] else "accepted", updated_at=now(), last_error=None)
             return {"ok": True, "updated": updated, "imported": imported}
         if operation not in {"invite", "remove", "convert", "revoke"}:
             raise PlexError("Unknown Plex action")
@@ -167,10 +209,11 @@ class PlexClient:
                 matches = [u for u in users if u["email"] == member["email"] and u["kind"] == member["invite_type"]]
                 if any(not u["pending"] for u in matches):
                     raise PlexError("Invitation has been accepted. Sync before removing a member.")
-                removed = await self.remove_side(member, member["invite_type"], users)
-                if not removed and member.get("plex_invite_id"):
-                    path = "/api/home/users/" if member["invite_type"] == "home" else "/api/v2/shared_servers/"
-                    await self.request(path + identifier(member["plex_invite_id"]), "DELETE")
+                pending = [hit for hit in matches if hit["pending"] and hit.get("flags") is not None]
+                if not pending:
+                    raise PlexError("No pending invite was found. Sync before trying again.")
+                for hit in pending:
+                    await self.cancel_pending(hit)
                 member.update(status="not_invited", plex_invite_id=None, plex_user_id=None, last_error=None)
             elif operation == "convert":
                 kind = args.get("toType")
