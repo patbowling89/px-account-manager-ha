@@ -1,0 +1,19 @@
+{
+  "domain": "px_account_manager",
+  "name": "PX Account Manager",
+  "version": "0.1.0",
+  "config_flow": true,
+  "documentation": "https://github.com/patbowling89/px-account-manager-ha",
+  "issue_tracker": "https://github.com/patbowling89/px-account-manager-ha/issues",
+  "codeowners": [
+    "@patbowling89"
+  ],
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "iot_class": "cloud_polling",
+  "requirements": []
+}
