@@ -1,6 +1,6 @@
 # Verification status
 
-Version 0.1.1 addresses the HTTP 410 reported during initial live Home Assistant testing. The panel loads in HA; live Plex compatibility is not yet confirmed.
+Version 0.1.2 addresses long-member-list scrolling and release tracking. The user confirmed that panel loading, Plex authentication and member sync work after 0.1.1. Other real Plex account operations still need testing.
 
 Completed locally:
 
@@ -23,3 +23,11 @@ Pending before considering production-ready:
 - Test the real Plex token, member sync, invitation/revocation/conversion/removal with a designated test member.
 - Verify phone layout, dark mode and keyboard focus within HA's panel container.
 - Import existing billing records only from a deliberate customer-data export.
+
+## Version 0.1.2 dialog checks
+
+An isolated local preview was started with 60 fictional members using `python3 tests/browser_server.py --member-count 60 --port 8779`. Native wheel actions scrolled the outer new-account dialog and the nested member list to its end. The last member was checked and the household saved with exactly one assigned member. The same flow was inspected in a 390×760 iframe viewport; the last remaining member could be selected and Save/Cancel stayed visible. These were desktop-browser small-screen checks, not a physical phone touch test.
+
+The modal scroll-lock overlay now contains the dialog content, allowing events from its shadow DOM to reach the lock's scroll handlers. `data-slot=dialog-content` activates the viewport height limit; the footer sticks inside the scroll area.
+
+For release tracking, 0.1.2 must be a normal GitHub release (not marked pre-release), with `hide_default_branch: true` in hacs.json. Verify the published release flag and matching version metadata before offering it in HACS.

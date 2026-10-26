@@ -4,7 +4,13 @@ A local Home Assistant adaptation of the supplied PX Account Manager Lovable pro
 
 **Public code does not share personal data.** Each installation starts empty and uses its own HA storage, HA administrator login and optional Plex token. See [Privacy and installation isolation](PRIVACY.md). All administrators on the same HA instance can access that instance's records.
 
-**Status: initial test release, version 0.1.1.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing is in progress. Plex operations still need validation against a real account.
+**Status: early release, version 0.1.2.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+
+## Version 0.1.2: member scrolling and HACS tracking
+
+The account dialogs now fit the viewport, allow scrolling through long member lists inside Home Assistant's panel, and keep Save/Cancel accessible. Member names and email addresses stack on small screens. The new-account flow was checked with 60 fictional members on desktop and in a 390-pixel-wide phone-sized frame.
+
+Version 0.1.2 is published as a regular GitHub release, and HACS hides the development branch. Normal installs track release versions without enabling the Pre-release switch. Existing users should select **Update information** in HACS, update to 0.1.2, restart HA and refresh the panel. The first update from 0.1.1 is real; subsequent checks should compare the same installed and available release label.
 
 ## Plex compatibility fix in 0.1.1
 
