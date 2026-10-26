@@ -1,0 +1,43 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const page=await browser.newPage({viewport:{width:1280,height:900}});
+const errors=[];const requests=[];
+page.on('pageerror', e=>errors.push(e.message));
+page.on('request',r=>requests.push(r.url()));
+page.on('dialog',dialog=>dialog.accept());
+try {
+  await page.goto('http://127.0.0.1:8778');
+  await page.getByRole('heading',{name:'PX Account Manager'}).waitFor();
+  await page.getByRole('tab',{name:'Payment Control'}).click();
+  await page.getByRole('button',{name:'New account'}).click();
+  await page.getByLabel('Account name').fill('Demo Household');
+  await page.getByLabel('Monthly amount').fill('75');
+  await page.getByLabel('Currency',{exact:true}).fill('GTQ');
+  await page.getByLabel('Billing day').fill('31');
+  await page.getByLabel('Next unpaid month starts').fill('2026-01-31');
+  await page.getByRole('button',{name:'Save',exact:true}).click();
+  await page.getByText('9 month(s) ·').waitFor();
+  await page.getByRole('button',{name:'Mark paid',exact:true}).first().click();
+  await page.getByText('8 month(s) ·').waitFor();
+  await page.getByRole('button',{name:'History',exact:true}).click();
+  await page.getByText('2026-01-31 → 2026-02-28').waitFor();
+  await page.getByRole('button',{name:'Undo latest payment',exact:true}).click();
+  await page.getByText('No payments recorded yet.').waitFor();
+  await page.getByRole('button',{name:'Close',exact:true}).last().click();
+  await page.getByText('9 month(s) ·').waitFor();
+  await page.getByRole('tab',{name:'Members',exact:true}).click();
+  await page.getByRole('tab',{name:'Add new'}).click();
+  await page.screenshot({path:'../tests/member-form.png',fullPage:true});
+  // Verify all assets and API calls stay local to this isolated demo.
+  assert.equal(requests.some(url=>!url.startsWith('http://127.0.0.1:8778')),false);
+  assert.deepEqual(errors,[]);
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('tab',{name:'Dashboard',exact:true}).click();
+  await page.screenshot({path:'../tests/mobile-preview.png',fullPage:true});
+  await page.evaluate(()=>{const panel=document.querySelector('px-account-manager'); panel.hass={user:{id:'not-admin',is_admin:false},callWS:async()=>{throw new Error('Should not be called');}};});
+  await page.getByText('Administrator access is required.').waitFor();
+  assert.equal(await page.getByRole('heading',{name:'PX Account Manager'}).count(),0);
+  console.log('UI checks passed: account creation, overdue months, full-month payment, payment undo, responsive layout, admin restriction, local-only requests.');
+} finally {await browser.close();}
