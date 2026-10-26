@@ -148,7 +148,7 @@ export function PanelPage() {
   const handleTestToken = async () => {
     try {
       const res = await testToken({});
-      if (res.ok) toast.success(`Plex token works — ${res.userCount} home users`);
+      if (res.ok) toast.success("Plex token works — account authenticated. Use Sync to load members.");
       else toast.error(`Plex token failed: ${res.error}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
