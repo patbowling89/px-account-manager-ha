@@ -144,4 +144,24 @@
 }
 
 :host { display:block; height:100%; overflow:auto; font-family:system-ui,sans-serif; color:var(--foreground); background:var(--background); }
-[data-slot="dialog-content"] {max-height:90dvh; overflow-y:auto;}
+[data-slot="dialog-content"] {
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  width: calc(100% - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+[data-slot="dialog-content"] [data-slot="dialog-footer"] {
+  position: sticky;
+  bottom: -1.5rem;
+  padding: .75rem 0 1.5rem;
+  background: var(--background);
+  z-index: 1;
+}
+.px-member-list {
+  max-height: min(20rem, 40dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
