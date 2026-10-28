@@ -37,3 +37,9 @@ For release tracking, 0.1.2 must be a normal GitHub release (not marked pre-rele
 In the isolated preview, a household was saved with name Previous demo household, amount 125, GTQ, billing day 15 and due date 2026-10-15. Reopening New account showed a blank name, amount 0, USD, the current calendar day, Free off, no due date and no selected members. A canceled draft with Free on was discarded on the next opening. Editing the saved account retained its original values.
 
 Dark was selected and persisted after reload. Its computed background was black with white foreground and neutral gray cards. Light was selected, persisted after reload and remained light when the simulated HA theme was dark. Follow Home Assistant then followed the simulated dark HA theme. These are local browser checks; no real customer records were changed.
+
+## Version 0.1.4 checks
+
+40 automated model/Plex tests pass. New cases cover IPTV billing without email or Plex IDs, same-email memberships across services, Plex action rejection for IPTV, sync isolation, inactive assignment rejection and preservation of existing inactive billing links.
+
+Local browser testing with fictional data confirmed IPTV creation with name only, its Active label and local Deactivate action, and exclusion from New account after deactivation. Dark card and table container borders compute as solid 1px neutral gray inside the shadow root. No live customer records or Plex accounts were modified.

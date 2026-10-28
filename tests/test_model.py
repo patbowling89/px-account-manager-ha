@@ -96,6 +96,52 @@ class BillingTests(unittest.TestCase):
         draft.mutate("delete_account", {"id": self.account["id"]})
         self.assertEqual(len(self.ledger.data["plex_billing_accounts"]), 1)
 
+    def test_iptv_member_needs_no_email_or_plex_account_and_can_be_billed(self):
+        member = self.ledger.mutate("create_member", {"display_name": "Demo IPTV", "service_type": "iptv"})
+        self.assertEqual(member["email"], "")
+        self.assertEqual(member["status"], "accepted")
+        self.assertIsNone(member["plex_user_id"])
+        self.ledger.mutate("assign_members", {"accountId": self.account["id"], "memberIds": [member["id"]]})
+        self.pay()
+        self.assertEqual(member["account_id"], self.account["id"])
+        self.assertEqual(len(self.ledger.data["plex_account_payments"]), 1)
+
+    def test_iptv_email_optional_but_supplied_email_must_be_valid(self):
+        with self.assertRaisesRegex(ValueError, "valid email"):
+            self.ledger.mutate("create_member", {"display_name": "Demo IPTV", "service_type": "iptv", "email": "invalid"})
+        with self.assertRaisesRegex(ValueError, "valid email"):
+            self.ledger.mutate("create_member", {"display_name": "Demo Plex"})
+
+    def test_same_contact_can_have_separate_plex_and_iptv_memberships(self):
+        self.ledger.mutate("create_member", {"display_name": "Plex", "email": "demo@example.com"})
+        self.ledger.mutate("create_member", {"display_name": "IPTV", "email": "demo@example.com", "service_type": "iptv"})
+        self.assertEqual(len(self.ledger.data["plex_home_members"]), 2)
+
+    def test_inactive_member_cannot_be_added_through_bulk_or_single_assignment(self):
+        member = self.ledger.mutate("create_member", {"display_name": "Inactive IPTV", "service_type": "iptv"})
+        self.ledger.mutate("set_member_active", {"id": member["id"], "active": False})
+        with self.assertRaisesRegex(ValueError, "Inactive members"):
+            self.ledger.mutate("assign_members", {"accountId": self.account["id"], "memberIds": [member["id"]]})
+        with self.assertRaisesRegex(ValueError, "Inactive members"):
+            self.ledger.mutate("update_member", {"id": member["id"], "values": {"account_id": self.account["id"]}})
+        self.assertIsNone(member["account_id"])
+
+    def test_hidden_inactive_billing_links_are_preserved_when_active_members_change(self):
+        member = self.ledger.mutate("create_member", {"display_name": "IPTV", "service_type": "iptv", "account_id": self.account["id"]})
+        self.ledger.mutate("set_member_active", {"id": member["id"], "active": False})
+        self.ledger.mutate("assign_members", {"accountId": self.account["id"], "memberIds": []})
+        self.assertEqual(member["account_id"], self.account["id"])
+        self.ledger.mutate("set_member_active", {"id": member["id"], "active": True})
+        self.assertEqual(member["status"], "accepted")
+
+    def test_old_members_without_service_field_still_validate_as_plex(self):
+        member = self.ledger.mutate("create_member", {"display_name": "Legacy", "email": "legacy@example.com"})
+        member.pop("service_type")
+        self.ledger.mutate("update_member", {"id": member["id"], "values": {"notes": "Updated"}})
+        self.assertEqual(member["notes"], "Updated")
+        with self.assertRaisesRegex(ValueError, "different service"):
+            self.ledger.mutate("update_member", {"id": member["id"], "values": {"service_type": "iptv"}})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -72,11 +72,13 @@ class Ledger:
         if not isinstance(member_ids, list) or len(member_ids) > 10000:
             raise ValueError("Invalid members")
         for item in member_ids:
-            self.get("plex_home_members", item)
+            member = self.get("plex_home_members", item)
+            if member["status"] == "removed" and member.get("account_id") != account_id:
+                raise ValueError("Inactive members cannot be added to a billing account")
         for member in self.data["plex_home_members"]:
             if member["id"] in member_ids:
                 member["account_id"] = account_id
-            elif member.get("account_id") == account_id:
+            elif member.get("account_id") == account_id and member["status"] != "removed":
                 member["account_id"] = None
 
     def mutate(self, action, args):
@@ -148,8 +150,10 @@ class Ledger:
             self.data["plex_account_payments"].remove(payment)
             return None
         if action == "create_member":
-            row = dict(id=str(uuid4()), owner_id="home_assistant", status="not_invited", invite_type="home", plex_user_id=None, plex_invite_id=None, account_id=None, plex_username=None, plex_password=None, plex_pin=None, credentials_note=None, notes=None, last_error=None, created_at=now(), updated_at=now())
-            self.validate_member(row, args)
+            row = dict(id=str(uuid4()), owner_id="home_assistant", service_type="plex", status="not_invited", invite_type="home", plex_user_id=None, plex_invite_id=None, account_id=None, plex_username=None, plex_password=None, plex_pin=None, credentials_note=None, notes=None, last_error=None, created_at=now(), updated_at=now(), email="")
+            self.validate_member(row, args, creating=True)
+            if row["service_type"] == "iptv":
+                row["status"] = "accepted"
             self.data["plex_home_members"].append(row)
             return row
         if action == "update_member":
@@ -159,10 +163,16 @@ class Ledger:
         if action == "delete_member":
             self.data["plex_home_members"].remove(self.get("plex_home_members", args["id"]))
             return None
+        if action == "set_member_active":
+            row = self.get("plex_home_members", args["id"])
+            if row.get("service_type", "plex") != "iptv" or type(args.get("active")) is not bool:
+                raise ValueError("This local status action is for IPTV members only")
+            row.update(status="accepted" if args["active"] else "removed", updated_at=now())
+            return row
         raise ValueError("Unknown action")
 
-    def validate_member(self, row, values):
-        allowed = {"display_name", "email", "invite_type", "notes", "account_id", "plex_username", "plex_password", "plex_pin", "credentials_note"}
+    def validate_member(self, row, values, creating=False):
+        allowed = {"display_name", "email", "service_type", "invite_type", "notes", "account_id", "plex_username", "plex_password", "plex_pin", "credentials_note"}
         for key, value in values.items():
             if key in {"owner_id", "id"}:
                 continue
@@ -171,14 +181,22 @@ class Ledger:
             if key == "account_id":
                 if value is not None:
                     self.get("plex_billing_accounts", value)
+                    if row["status"] == "removed" and value != row.get("account_id"):
+                        raise ValueError("Inactive members cannot be added to a billing account")
             else:
-                text(value, key, nullable=key not in {"display_name", "email", "invite_type"})
+                text(value, key, nullable=key not in {"display_name", "email", "invite_type", "service_type"})
+            if key == "service_type" and not creating and value != row.get("service_type", "plex"):
+                raise ValueError("Create a separate member for a different service")
             row[key] = value
-        if not row.get("display_name", "").strip() or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", row.get("email", "")):
-            raise ValueError("Name and a valid email address are required")
+        if row.get("service_type", "plex") not in {"plex", "iptv"}:
+            raise ValueError("Invalid member service")
+        if not row.get("display_name", "").strip():
+            raise ValueError("Member name is required")
         row["email"] = row["email"].strip().lower()
+        if (row["email"] or row.get("service_type", "plex") == "plex") and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", row["email"]):
+            raise ValueError("A valid email address is required for Plex members; IPTV email is optional")
         if row["invite_type"] not in {"home", "friend"}:
             raise ValueError("Invalid invite type")
-        if any(m["id"] != row["id"] and m["email"].lower() == row["email"] for m in self.data["plex_home_members"]):
+        if row["email"] and any(m["id"] != row["id"] and m["email"].lower() == row["email"] and m.get("service_type", "plex") == row.get("service_type", "plex") for m in self.data["plex_home_members"]):
             raise ValueError("A member with that email already exists")
         row["updated_at"] = now()

@@ -130,6 +130,23 @@ class PlexTests(unittest.IsolatedAsyncioTestCase):
         await client.run(self.ledger, {"operation": "sync"})
         self.assertEqual(self.member["status"], "accepted")
 
+    async def test_sync_never_converts_an_iptv_contact_into_a_plex_member(self):
+        iptv = self.ledger.mutate("create_member", {"display_name": "Local IPTV", "service_type": "iptv", "email": "iptv@example.com"})
+        client = FakePlex({("GET", "/api/users/"): ET.fromstring('<MediaContainer><User id="42" email="iptv@example.com"/></MediaContainer>')})
+        result = await client.run(self.ledger, {"operation": "sync"})
+        self.assertEqual(result["imported"], 1)
+        self.assertEqual(iptv["service_type"], "iptv")
+        self.assertIsNone(iptv["plex_user_id"])
+        self.assertEqual(len([m for m in self.ledger.data["plex_home_members"] if m["email"] == "iptv@example.com"]), 2)
+
+    async def test_all_member_plex_actions_reject_iptv_without_network_requests(self):
+        iptv = self.ledger.mutate("create_member", {"display_name": "Local IPTV", "service_type": "iptv"})
+        client = FakePlex({})
+        for operation in ("invite", "remove", "convert", "revoke"):
+            with self.assertRaisesRegex(plex.PlexError, "IPTV-only"):
+                await client.run(self.ledger, {"operation": operation, "memberId": iptv["id"], "toType": "friend"})
+        self.assertEqual(client.calls, [])
+
 
 class FakeContent:
     def __init__(self, body):

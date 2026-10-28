@@ -58,6 +58,7 @@ type MemberLite = {
   display_name: string;
   email: string;
   account_id: string | null;
+  status: string;
 };
 
 export function StatusBadge({ status, days }: { status: BillingStatus; days: number }) {
@@ -394,7 +395,7 @@ function EditAccountDialog({
     }
   };
 
-  const eligibleMembers = mode === "create" ? members.filter((m) => !m.account_id) : [];
+  const eligibleMembers = mode === "create" ? members.filter((m) => m.status !== "removed" && !m.account_id) : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -466,7 +467,7 @@ function EditAccountDialog({
             <div>
               <Label>Add members</Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Only members without an account are shown. You can change members later.
+                Active members without an account are shown. You can change members later.
               </p>
               <div role="group" aria-label="Available members" className="px-member-list rounded border border-border">
                 {eligibleMembers.map((m) => (
@@ -518,7 +519,7 @@ function ManageMembersDialog({
   onSaved: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
-    new Set(members.filter((m) => m.account_id === account.id).map((m) => m.id)),
+    new Set(members.filter((m) => m.status !== "removed" && m.account_id === account.id).map((m) => m.id)),
   );
   const [saving, setSaving] = useState(false);
 
@@ -536,7 +537,7 @@ function ManageMembersDialog({
     }
   };
 
-  const eligible = members.filter((m) => !m.account_id || m.account_id === account.id);
+  const eligible = members.filter((m) => m.status !== "removed" && (!m.account_id || m.account_id === account.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

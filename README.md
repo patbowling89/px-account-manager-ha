@@ -4,7 +4,14 @@ A local Home Assistant adaptation of the supplied PX Account Manager Lovable pro
 
 **Public code does not share personal data.** Each installation starts empty and uses its own HA storage, HA administrator login and optional Plex token. See [Privacy and installation isolation](PRIVACY.md). All administrators on the same HA instance can access that instance's records.
 
-**Status: early release, version 0.1.3.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+**Status: early release, version 0.1.4.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+
+## Version 0.1.4: IPTV members and clearer borders
+
+- Add local IPTV-only members under Members → Add new → IPTV only. A name is required; email is optional. Assign them to billing accounts and record payments just like Plex members.
+- IPTV members are separate from Plex sync and invitations. Deactivate/reactivate them locally; this does not provision or cancel IPTV service.
+- Billing member selectors show active members only. Existing inactive member links and payment history are preserved.
+- Dark cards and tables now have visible neutral gray borders, including inside Home Assistant's panel.
 
 ## Version 0.1.3: fresh account forms and themes
 

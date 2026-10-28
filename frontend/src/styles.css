@@ -100,7 +100,7 @@
 :host(.dark) {
   --background: oklch(0 0 0);
   --foreground: oklch(1 0 0);
-  --card: oklch(0.13 0 0);
+  --card: oklch(0.17 0 0);
   --card-foreground: oklch(0.984 0 0);
   --popover: oklch(0.16 0 0);
   --popover-foreground: oklch(0.984 0 0);
@@ -114,7 +114,7 @@
   --accent-foreground: oklch(0.984 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0 0);
-  --border: oklch(0.32 0 0);
+  --border: oklch(0.48 0 0);
   --input: oklch(0.4 0 0);
   --ring: oklch(0.551 0 0);
   --chart-1: oklch(0.488 0 0);
@@ -134,7 +134,8 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    --tw-border-style: solid;
+    border-color: var(--border);
   }
 
   body {

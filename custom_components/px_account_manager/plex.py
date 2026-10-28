@@ -181,7 +181,7 @@ class PlexClient:
                     dedup[key] = entry
             updated = imported = 0
             for entry in dedup.values():
-                member = next((m for m in ledger.data["plex_home_members"] if (entry["id"] and m.get("plex_user_id") == entry["id"]) or (entry["email"] and m["email"] == entry["email"])), None)
+                member = next((m for m in ledger.data["plex_home_members"] if m.get("service_type", "plex") == "plex" and ((entry["id"] and m.get("plex_user_id") == entry["id"]) or (entry["email"] and m["email"] == entry["email"]))), None)
                 if not member and entry["email"]:
                     member = ledger.mutate("create_member", {"display_name": entry["name"] or entry["email"], "email": entry["email"], "invite_type": entry["kind"]})
                     imported += 1
@@ -193,6 +193,8 @@ class PlexClient:
         if operation not in {"invite", "remove", "convert", "revoke"}:
             raise PlexError("Unknown Plex action")
         member = ledger.get("plex_home_members", args.get("memberId"))
+        if member.get("service_type", "plex") != "plex":
+            raise PlexError("IPTV-only members are managed locally and cannot use Plex actions")
         if operation == "remove" and args.get("scope") == "panel_only":
             ledger.mutate("delete_member", {"id": member["id"]})
             return {"ok": True}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { localDb } from "@/lib/ha";
+import { localDb, command } from "@/lib/ha";
 import { ThemePicker } from "@/theme";
 import {
   testPlexToken,
@@ -55,6 +55,7 @@ type Member = {
   email: string;
   status: "not_invited" | "invited" | "accepted" | "failed" | "removed";
   invite_type: InviteType;
+  service_type?: "plex" | "iptv";
   plex_user_id: string | null;
   notes: string | null;
   last_error: string | null;
@@ -68,6 +69,11 @@ type Member = {
 
 export function PanelPage() {
   const qc = useQueryClient();
+  const localMemberMutation = useMutation({
+    mutationFn: (args:{id:string;active?:boolean;remove?:boolean}) => command(args.remove ? "delete_member" : "set_member_active",args),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:["members"]});toast.success("Member updated");},
+    onError:(error:Error)=>toast.error(error.message),
+  });
 
   const membersQuery = useQuery({
     queryKey: ["members"],
@@ -164,6 +170,7 @@ export function PanelPage() {
     display_name: m.display_name,
     email: m.email,
     account_id: m.account_id,
+    status: m.status,
   }));
   const memberLiteWithStatus = all.map((m) => ({
     id: m.id,
@@ -173,7 +180,7 @@ export function PanelPage() {
     account_id: m.account_id,
     created_at: m.created_at,
   }));
-  const credentialMembers = all.map((m) => ({
+  const credentialMembers = all.filter(m=>m.service_type!=="iptv").map((m) => ({
     id: m.id,
     display_name: m.display_name,
     email: m.email,
@@ -246,7 +253,7 @@ export function PanelPage() {
                   <CardHeader>
                     <CardTitle>Active members</CardTitle>
                     <CardDescription>
-                      People you're onboarding to your Plex Home. Assign each to a billing account.
+                      Plex and IPTV members. Assign each to a billing account.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -281,11 +288,11 @@ export function PanelPage() {
                                 <TableCell className="font-mono text-xs">{m.email}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline">
-                                    {m.invite_type === "friend" ? "Friend" : "Home"}
+                                    {m.service_type === "iptv" ? "IPTV" : m.invite_type === "friend" ? "Friend" : "Home"}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <StatusBadge status={m.status} />
+                                  {m.service_type === "iptv" ? <Badge variant="secondary">Active</Badge> : <StatusBadge status={m.status} />}
                                   {m.last_error && (
                                     <p className="mt-1 text-xs text-destructive">{m.last_error}</p>
                                   )}
@@ -297,6 +304,7 @@ export function PanelPage() {
                                       display_name: m.display_name,
                                       email: m.email,
                                       account_id: m.account_id,
+                                      status: m.status,
                                     }}
                                     accounts={accounts}
                                     onChanged={() => {
@@ -310,6 +318,7 @@ export function PanelPage() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
+                                    {m.service_type === "iptv" ? <Button size="sm" variant="outline" disabled={localMemberMutation.isPending} onClick={()=>localMemberMutation.mutate({id:m.id,active:false})}>Deactivate</Button> : <>
                                     {m.status !== "accepted" && (
                                       <Button
                                         size="sm"
@@ -399,6 +408,7 @@ export function PanelPage() {
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
+                                    </>}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -415,8 +425,7 @@ export function PanelPage() {
                     <CardHeader>
                       <CardTitle>Inactive members</CardTitle>
                       <CardDescription>
-                        Removed from your Plex Home and library. Re-invite to restore access or remove
-                        them from the panel entirely.
+                        Inactive members aren't available for new billing assignments. Reactivate an IPTV member or re-invite a Plex member to restore access.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -436,7 +445,7 @@ export function PanelPage() {
                               <TableCell className="font-mono text-xs">{m.email}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">
-                                  {m.invite_type === "friend" ? "Friend" : "Home"}
+                                  {m.service_type === "iptv" ? "IPTV" : m.invite_type === "friend" ? "Friend" : "Home"}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
@@ -444,11 +453,11 @@ export function PanelPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => inviteMutation.mutate(m.id)}
-                                    disabled={inviteMutation.isPending}
+                                    onClick={() => m.service_type === "iptv" ? localMemberMutation.mutate({id:m.id,active:true}) : inviteMutation.mutate(m.id)}
+                                    disabled={inviteMutation.isPending || localMemberMutation.isPending}
                                   >
                                     <Send className="mr-1 h-3 w-3" />
-                                    Re-invite
+                                    {m.service_type === "iptv" ? "Reactivate" : "Re-invite"}
                                   </Button>
                                   <Button
                                     size="sm"
@@ -456,7 +465,8 @@ export function PanelPage() {
                                     className="text-destructive hover:text-destructive"
                                     onClick={() => {
                                       if (confirm(`Permanently remove ${m.display_name} from the panel?`)) {
-                                        removeMutation.mutate({ memberId: m.id, scope: "panel_only" });
+                                        if(m.service_type === "iptv") localMemberMutation.mutate({id:m.id,remove:true});
+                                        else removeMutation.mutate({ memberId: m.id, scope: "panel_only" });
                                       }
                                     }}
                                   >
@@ -506,6 +516,7 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [inviteType, setInviteType] = useState<InviteType>("home");
+  const [serviceType,setServiceType] = useState<"plex"|"iptv">("plex");
   const [needsOutlook, setNeedsOutlook] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -535,6 +546,7 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
       display_name: displayName.trim(),
       email: email.trim().toLowerCase(),
       invite_type: inviteType,
+      service_type: serviceType,
       notes: notes.trim() || null,
     });
     setSaving(false);
@@ -557,21 +569,19 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
           <UserPlus className="h-4 w-4" /> Add a new member
         </CardTitle>
         <CardDescription>
-          Choose <strong>Plex Home</strong> (full home member, ~15 slot limit) or{" "}
-          <strong>Friend / library share</strong> (no slot, just library access). If they need a
-          new mailbox, leave "Create Outlook address" on and use the signup helper.
+          Choose Plex Home, a Plex library share, or an IPTV-only member for local payment tracking.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <Label>Invite type</Label>
+            <Label>Member type</Label>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setInviteType("home")}
+                onClick={() => {setServiceType("plex");setInviteType("home");}}
                 className={`rounded-md border px-3 py-1.5 text-sm ${
-                  inviteType === "home"
+                  serviceType === "plex" && inviteType === "home"
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border text-muted-foreground hover:bg-accent"
                 }`}
@@ -580,15 +590,16 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
               </button>
               <button
                 type="button"
-                onClick={() => setInviteType("friend")}
+                onClick={() => {setServiceType("plex");setInviteType("friend");}}
                 className={`rounded-md border px-3 py-1.5 text-sm ${
-                  inviteType === "friend"
+                  serviceType === "plex" && inviteType === "friend"
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border text-muted-foreground hover:bg-accent"
                 }`}
               >
                 Friend (library share)
               </button>
+              <button type="button" onClick={()=>setServiceType("iptv")} className={`rounded-md border px-3 py-1.5 text-sm ${serviceType === "iptv" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-accent"}`}>IPTV only</button>
             </div>
           </div>
 
@@ -603,7 +614,7 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
             />
           </div>
 
-          <div className="space-y-2">
+          {serviceType === "plex" && <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -643,15 +654,15 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
                 )}
               </>
             )}
-          </div>
+          </div>}
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="email">Final email address</Label>
+            <Label htmlFor="email">{serviceType === "iptv" ? "Contact email (optional)" : "Final email address"}</Label>
             <div className="flex gap-2">
               <Input
                 id="email"
                 type="email"
-                required
+                required={serviceType === "plex"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex.doe@outlook.com"
@@ -659,7 +670,7 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
               <Mail className="mt-2 h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-xs text-muted-foreground">
-              Paste the address you actually created during the Outlook signup.
+              {serviceType === "iptv" ? "Local billing record only. No Plex account or token is needed." : "Use the member's Plex account email address."}
             </p>
           </div>
 
