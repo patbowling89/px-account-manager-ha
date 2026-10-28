@@ -1,7 +1,7 @@
 {
   "domain": "px_account_manager",
   "name": "PX Account Manager",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "config_flow": true,
   "documentation": "https://github.com/patbowling89/px-account-manager-ha",
   "issue_tracker": "https://github.com/patbowling89/px-account-manager-ha/issues",

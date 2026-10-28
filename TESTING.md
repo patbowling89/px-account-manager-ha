@@ -31,3 +31,9 @@ An isolated local preview was started with 60 fictional members using `python3 t
 The modal scroll-lock overlay now contains the dialog content, allowing events from its shadow DOM to reach the lock's scroll handlers. `data-slot=dialog-content` activates the viewport height limit; the footer sticks inside the scroll area.
 
 For release tracking, 0.1.2 must be a normal GitHub release (not marked pre-release), with `hide_default_branch: true` in hacs.json. Verify the published release flag and matching version metadata before offering it in HACS.
+
+## Version 0.1.3 form and theme checks
+
+In the isolated preview, a household was saved with name Previous demo household, amount 125, GTQ, billing day 15 and due date 2026-10-15. Reopening New account showed a blank name, amount 0, USD, the current calendar day, Free off, no due date and no selected members. A canceled draft with Free on was discarded on the next opening. Editing the saved account retained its original values.
+
+Dark was selected and persisted after reload. Its computed background was black with white foreground and neutral gray cards. Light was selected, persisted after reload and remained light when the simulated HA theme was dark. Follow Home Assistant then followed the simulated dark HA theme. These are local browser checks; no real customer records were changed.

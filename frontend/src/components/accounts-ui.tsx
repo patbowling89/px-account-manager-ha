@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -282,7 +282,7 @@ export function AccountsSection({ members }: { members: MemberLite[] }) {
         </CardContent>
       </Card>
 
-      <EditAccountDialog
+      {createOpen && <EditAccountDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
         mode="create"
@@ -291,7 +291,7 @@ export function AccountsSection({ members }: { members: MemberLite[] }) {
           qc.invalidateQueries({ queryKey: ["accounts"] });
           qc.invalidateQueries({ queryKey: ["members"] });
         }}
-      />
+      />}
       {editing && (
         <EditAccountDialog
           key={editing.id}
@@ -354,12 +354,6 @@ function EditAccountDialog({
   const [nextDueDate, setNextDueDate] = useState(account?.next_due_date ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open && mode === "create") {
-      setSelected(new Set());
-    }
-  }, [open, mode]);
 
   const save = async () => {
     if (!name.trim()) {

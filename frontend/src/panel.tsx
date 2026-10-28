@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { localDb } from "@/lib/ha";
+import { ThemePicker } from "@/theme";
 import {
   testPlexToken,
   sendHomeInvite,
@@ -195,7 +196,8 @@ export function PanelPage() {
               <p className="text-xs text-muted-foreground">Members, billing, and credentials in one place.</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <ThemePicker />
             <Button variant="outline" size="sm" onClick={handleTestToken}>
               Test token
             </Button>

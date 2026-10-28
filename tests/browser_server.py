@@ -5,7 +5,7 @@ import importlib.util
 import json
 from datetime import date
 from threading import Lock
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
 BASE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("model", BASE / "custom_components/px_account_manager/model.py")
@@ -31,7 +31,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         if route.path == "/":
-            body = HTML.encode()
+            html = HTML.replace("darkMode:false", "darkMode:true") if parse_qs(route.query).get("ha_theme") == ["dark"] else HTML
+            body = html.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.send_header("Content-Length", str(len(body)))

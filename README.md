@@ -4,7 +4,13 @@ A local Home Assistant adaptation of the supplied PX Account Manager Lovable pro
 
 **Public code does not share personal data.** Each installation starts empty and uses its own HA storage, HA administrator login and optional Plex token. See [Privacy and installation isolation](PRIVACY.md). All administrators on the same HA instance can access that instance's records.
 
-**Status: early release, version 0.1.2.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+**Status: early release, version 0.1.3.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+
+## Version 0.1.3: fresh account forms and themes
+
+Every New account dialog now starts fresh after either Save or Cancel: blank name, Free off, amount 0, USD, today's billing day, no due date and no selected members. Editing an existing account retains that account's saved values.
+
+A Theme selector in the header offers Follow Home Assistant, Light and Dark. Dark uses black, white and neutral gray surfaces; Light uses an off-white background and white cards. The choice is saved in this browser and device, with no customer data stored in browser storage. A manual choice takes priority over HA's theme.
 
 ## Version 0.1.2: member scrolling and HACS tracking
 

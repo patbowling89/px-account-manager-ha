@@ -7,6 +7,7 @@ import {setHass, Hass, command} from "./lib/ha";
 import {PortalContext} from "./portal";
 import css from "./styles.css?inline";
 import toastCss from "sonner/dist/styles.css?inline";
+import {ThemeContext, ThemePreference, THEME_STORAGE_KEY} from "./theme";
 
 function BackupButton() {
   const [busy,setBusy] = React.useState(false);
@@ -25,20 +26,35 @@ class PXPanel extends HTMLElement {
   private portals = document.createElement("div");
   private client = new QueryClient({defaultOptions:{queries:{retry:1,staleTime:15000,refetchOnWindowFocus:true},mutations:{retry:false}}});
   private current?:Hass;
+  private themePreference:ThemePreference = "auto";
   constructor() {
     super();
+    try {
+      const saved=localStorage.getItem(THEME_STORAGE_KEY);
+      if(saved==="light"||saved==="dark") this.themePreference=saved;
+    } catch { /* Storage can be unavailable in privacy mode; the selector still works. */ }
     const shadow=this.attachShadow({mode:"open"});
     const style=document.createElement("style");style.textContent=css+toastCss;
     shadow.append(style,this.mount,this.portals);
   }
-  set hass(value:Hass) {this.current=value;setHass(value);this.classList.toggle("dark",!!value.themes?.darkMode);this.render();}
+  set hass(value:Hass) {this.current=value;setHass(value);this.applyTheme();this.render();}
+  private applyTheme(){
+    const dark=this.themePreference==="dark"||(this.themePreference==="auto"&&!!this.current?.themes?.darkMode);
+    this.classList.toggle("dark",dark);
+    this.style.colorScheme=dark?"dark":"light";
+  }
+  private setTheme=(preference:ThemePreference)=>{
+    this.themePreference=preference;
+    try {localStorage.setItem(THEME_STORAGE_KEY,preference);} catch { /* Keep the in-memory choice. */ }
+    this.applyTheme();this.render();
+  };
   connectedCallback(){this.render();}
   disconnectedCallback(){this.root?.unmount();this.root=undefined;this.client.clear();}
   private render(){
     if (!this.isConnected || !this.current) return;
     this.root ??=createRoot(this.mount);
     if (!this.current.user?.is_admin) {this.client.clear();this.root.render(<p>Administrator access is required.</p>);return;}
-    this.root.render(<PortalContext.Provider value={this.portals}><QueryClientProvider client={this.client}><PanelPage/><BackupButton/><Toaster richColors position="bottom-center"/></QueryClientProvider></PortalContext.Provider>);
+    this.root.render(<ThemeContext.Provider value={{preference:this.themePreference,setPreference:this.setTheme}}><PortalContext.Provider value={this.portals}><QueryClientProvider client={this.client}><PanelPage/><BackupButton/><Toaster theme={this.classList.contains("dark")?"dark":"light"} richColors position="bottom-center"/></QueryClientProvider></PortalContext.Provider></ThemeContext.Provider>);
   }
 }
 if (!customElements.get("px-account-manager")) customElements.define("px-account-manager",PXPanel);
