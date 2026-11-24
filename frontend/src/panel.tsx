@@ -10,7 +10,7 @@ import {
   convertMember,
   revokeInvite,
 } from "@/lib/plex.functions";
-import { buildOutlookSignupUrl, suggestHandles } from "@/lib/outlook-signup";
+import { buildCustomEmail, loadEmailDomain, saveEmailDomain, suggestHandles } from "@/lib/custom-email";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ExternalLink, Mail, MoreHorizontal, RefreshCw, Send, UserPlus } from "lucide-react";
+import { Mail, MoreHorizontal, RefreshCw, Send, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { listAccounts } from "@/lib/billing";
 import { AccountsSection, AccountPickerCell } from "@/components/accounts-ui";
@@ -517,18 +517,39 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
   const [notes, setNotes] = useState("");
   const [inviteType, setInviteType] = useState<InviteType>("home");
   const [serviceType,setServiceType] = useState<"plex"|"iptv">("plex");
-  const [needsOutlook, setNeedsOutlook] = useState(true);
+  const [needsAddress, setNeedsAddress] = useState(true);
+  const [emailDomain, setEmailDomain] = useState(loadEmailDomain);
   const [saving, setSaving] = useState(false);
 
-  const suggestions = displayName && needsOutlook ? suggestHandles(displayName) : [];
+  const suggestions = displayName && needsAddress ? suggestHandles(displayName) : [];
 
-  const openOutlook = () => {
-    if (!handle.trim()) {
-      toast.error("Enter a desired handle first");
+  // Typing a handle (or picking a suggestion) fills the final email right away.
+  const applyHandle = (nextHandle: string, nextDomain = emailDomain) => {
+    setHandle(nextHandle);
+    const address = buildCustomEmail(nextHandle, nextDomain);
+    if (address) setEmail(address);
+  };
+
+  const changeDomain = (nextDomain: string) => {
+    setEmailDomain(nextDomain);
+    saveEmailDomain(nextDomain);
+    const address = buildCustomEmail(handle, nextDomain);
+    if (address) setEmail(address);
+  };
+
+  const copyAddress = async () => {
+    const address = buildCustomEmail(handle, emailDomain);
+    if (!address) {
+      toast.error(emailDomain.trim() ? "Enter a handle first" : "Enter your email domain first");
       return;
     }
-    window.open(buildOutlookSignupUrl(handle), "_blank", "noopener,noreferrer");
-    if (!email) setEmail(`${handle.trim().toLowerCase()}@outlook.com`);
+    setEmail(address);
+    try {
+      await navigator.clipboard.writeText(address);
+      toast.success(`Copied ${address}`);
+    } catch {
+      toast.success(`Address set: ${address}`);
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -618,24 +639,31 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
             <Label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={needsOutlook}
-                onChange={(e) => setNeedsOutlook(e.target.checked)}
+                checked={needsAddress}
+                onChange={(e) => setNeedsAddress(e.target.checked)}
                 className="h-3.5 w-3.5"
               />
-              Create a new Outlook address
+              Create an address on my domain
             </Label>
-            {needsOutlook && (
+            {needsAddress && (
               <>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Input
                     id="handle"
                     value={handle}
-                    onChange={(e) => setHandle(e.target.value)}
+                    onChange={(e) => applyHandle(e.target.value)}
                     placeholder="alex.doe"
                   />
-                  <Button type="button" variant="outline" onClick={openOutlook}>
-                    <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                    Open signup
+                  <span className="text-sm text-muted-foreground">@</span>
+                  <Input
+                    id="email-domain"
+                    value={emailDomain}
+                    onChange={(e) => changeDomain(e.target.value)}
+                    placeholder="yourdomain.com"
+                  />
+                  <Button type="button" variant="outline" onClick={copyAddress}>
+                    <Mail className="mr-1 h-3.5 w-3.5" />
+                    Copy
                   </Button>
                 </div>
                 {suggestions.length > 0 && (
@@ -645,13 +673,16 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
                         key={s}
                         type="button"
                         className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent"
-                        onClick={() => setHandle(s)}
+                        onClick={() => applyHandle(s)}
                       >
                         {s}
                       </button>
                     ))}
                   </div>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Mail to any address on this domain must be forwarded to you (for example a Cloudflare Email Routing catch-all).
+                </p>
               </>
             )}
           </div>}
@@ -665,7 +696,7 @@ function NewMemberCard({ onCreated }: { onCreated: () => void }) {
                 required={serviceType === "plex"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="alex.doe@outlook.com"
+                placeholder="alex.doe@yourdomain.com"
               />
               <Mail className="mt-2 h-4 w-4 text-muted-foreground" />
             </div>

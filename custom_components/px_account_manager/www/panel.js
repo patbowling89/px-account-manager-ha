@@ -11490,13 +11490,29 @@ var Qt = (e) => (t) => Gt("plex", {
 	operation: e,
 	...t.data
 }), $t = Qt("test"), en = Qt("invite"), tn = Qt("remove"), nn = Qt("sync"), rn = Qt("convert"), an = Qt("revoke");
-// src/lib/outlook-signup.ts
-function on(e) {
-	let t = e.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
-	return `https://signup.live.com/signup?${new URLSearchParams({
-		lic: "1",
-		username: t
-	}).toString()}`;
+// src/lib/custom-email.ts
+var pxDomKey = "px-account-manager.email-domain";
+function pxCleanHandle(e) {
+	return e.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+}
+function pxCleanDomain(e) {
+	return e.trim().toLowerCase().replace(/^@+/, "").replace(/[^a-z0-9.-]/g, "");
+}
+function pxBuildEmail(e, t) {
+	let n = pxCleanHandle(e), r = pxCleanDomain(t);
+	return n && r ? `${n}@${r}` : "";
+}
+function pxLoadDomain() {
+	try {
+		return localStorage.getItem(pxDomKey) ?? "";
+	} catch {
+		return "";
+	}
+}
+function pxSaveDomain(e) {
+	try {
+		localStorage.setItem(pxDomKey, pxCleanDomain(e));
+	} catch {}
 }
 function sn(e) {
 	let t = e.trim().toLowerCase().normalize("NFKD").replace(/[^\w\s.-]/g, "").replace(/\s+/g, ".");
@@ -20637,7 +20653,28 @@ function Kg({ status: e }) {
 	});
 }
 function qg({ onCreated: e }) {
-	let [t, n] = (0, x.useState)(""), [r, i] = (0, x.useState)(""), [a, o] = (0, x.useState)(""), [s, c] = (0, x.useState)(""), [l, u] = (0, x.useState)("home"), [d, f] = (0, x.useState)("plex"), [p, m] = (0, x.useState)(!0), [h, g] = (0, x.useState)(!1), _ = t && p ? sn(t) : [];
+	let [t, n] = (0, x.useState)(""), [r, i] = (0, x.useState)(""), [a, o] = (0, x.useState)(""), [s, c] = (0, x.useState)(""), [l, u] = (0, x.useState)("home"), [d, f] = (0, x.useState)("plex"), [p, m] = (0, x.useState)(!0), [pxDom, pxSetDom] = (0, x.useState)(pxLoadDomain), [h, g] = (0, x.useState)(!1), _ = t && p ? sn(t) : [];
+	let pxApplyHandle = (e, t = pxDom) => {
+		i(e);
+		let n = pxBuildEmail(e, t);
+		n && o(n);
+	}, pxChangeDomain = (e) => {
+		pxSetDom(e), pxSaveDomain(e);
+		let t = pxBuildEmail(r, e);
+		t && o(t);
+	}, pxCopy = async () => {
+		let e = pxBuildEmail(r, pxDom);
+		if (!e) {
+			I.error(pxDom.trim() ? "Enter a handle first" : "Enter your email domain first");
+			return;
+		}
+		o(e);
+		try {
+			await navigator.clipboard.writeText(e), I.success(`Copied ${e}`);
+		} catch {
+			I.success(`Address set: ${e}`);
+		}
+	};
 	return /* @__PURE__ */ (0, S.jsxs)(yi, { children: [/* @__PURE__ */ (0, S.jsxs)(bi, { children: [/* @__PURE__ */ (0, S.jsxs)(xi, {
 		className: "flex items-center gap-2",
 		children: [/* @__PURE__ */ (0, S.jsx)(fp, { className: "h-4 w-4" }), " Add a new member"]
@@ -20713,31 +20750,49 @@ function qg({ onCreated: e }) {
 						checked: p,
 						onChange: (e) => m(e.target.checked),
 						className: "h-3.5 w-3.5"
-					}), "Create a new Outlook address"]
-				}), p && /* @__PURE__ */ (0, S.jsxs)(S.Fragment, { children: [/* @__PURE__ */ (0, S.jsxs)("div", {
-					className: "flex gap-2",
-					children: [/* @__PURE__ */ (0, S.jsx)(ci, {
-						id: "handle",
-						value: r,
-						onChange: (e) => i(e.target.value),
-						placeholder: "alex.doe"
-					}), /* @__PURE__ */ (0, S.jsxs)(si, {
-						type: "button",
-						variant: "outline",
-						onClick: () => {
-							r.trim() ? (window.open(on(r), "_blank", "noopener,noreferrer"), a || o(`${r.trim().toLowerCase()}@outlook.com`)) : I.error("Enter a desired handle first");
-						},
-						children: [/* @__PURE__ */ (0, S.jsx)(ep, { className: "mr-1 h-3.5 w-3.5" }), "Open signup"]
-					})]
-				}), _.length > 0 && /* @__PURE__ */ (0, S.jsx)("div", {
-					className: "flex flex-wrap gap-1 pt-1",
-					children: _.map((e) => /* @__PURE__ */ (0, S.jsx)("button", {
-						type: "button",
-						className: "rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent",
-						onClick: () => i(e),
-						children: e
-					}, e))
-				})] })]
+					}), "Create an address on my domain"]
+				}), p && /* @__PURE__ */ (0, S.jsxs)(S.Fragment, { children: [
+					/* @__PURE__ */ (0, S.jsxs)("div", {
+						className: "flex items-center gap-2",
+						children: [
+							/* @__PURE__ */ (0, S.jsx)(ci, {
+								id: "handle",
+								value: r,
+								onChange: (e) => pxApplyHandle(e.target.value),
+								placeholder: "alex.doe"
+							}),
+							/* @__PURE__ */ (0, S.jsx)("span", {
+								className: "text-sm text-muted-foreground",
+								children: "@"
+							}),
+							/* @__PURE__ */ (0, S.jsx)(ci, {
+								id: "email-domain",
+								value: pxDom,
+								onChange: (e) => pxChangeDomain(e.target.value),
+								placeholder: "yourdomain.com"
+							}),
+							/* @__PURE__ */ (0, S.jsxs)(si, {
+								type: "button",
+								variant: "outline",
+								onClick: pxCopy,
+								children: [/* @__PURE__ */ (0, S.jsx)(ap, { className: "mr-1 h-3.5 w-3.5" }), "Copy"]
+							})
+						]
+					}),
+					_.length > 0 && /* @__PURE__ */ (0, S.jsx)("div", {
+						className: "flex flex-wrap gap-1 pt-1",
+						children: _.map((e) => /* @__PURE__ */ (0, S.jsx)("button", {
+							type: "button",
+							className: "rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent",
+							onClick: () => pxApplyHandle(e),
+							children: e
+						}, e))
+					}),
+					/* @__PURE__ */ (0, S.jsx)("p", {
+						className: "text-xs text-muted-foreground",
+						children: "Mail to any address on this domain must be forwarded to you (for example a Cloudflare Email Routing catch-all)."
+					})
+				] })]
 			}),
 			/* @__PURE__ */ (0, S.jsxs)("div", {
 				className: "space-y-2 md:col-span-2",
@@ -20754,7 +20809,7 @@ function qg({ onCreated: e }) {
 							required: d === "plex",
 							value: a,
 							onChange: (e) => o(e.target.value),
-							placeholder: "alex.doe@outlook.com"
+							placeholder: "alex.doe@yourdomain.com"
 						}), /* @__PURE__ */ (0, S.jsx)(ap, { className: "mt-2 h-4 w-4 text-muted-foreground" })]
 					}),
 					/* @__PURE__ */ (0, S.jsx)("p", {

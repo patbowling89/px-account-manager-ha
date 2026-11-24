@@ -4,7 +4,13 @@ A local Home Assistant adaptation of the supplied PX Account Manager Lovable pro
 
 **Public code does not share personal data.** Each installation starts empty and uses its own HA storage, HA administrator login and optional Plex token. See [Privacy and installation isolation](PRIVACY.md). All administrators on the same HA instance can access that instance's records.
 
-**Status: early release, version 0.1.4.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+**Status: early release, version 0.1.5.** The package builds and its billing/Plex behavior is tested with fictional data. Initial live Home Assistant testing has confirmed panel loading and Plex member sync. Further billing and Plex management testing is in progress.
+
+## Version 0.1.5: addresses on your own domain
+
+- Members → Add new no longer opens the Outlook signup page. Tick **Create an address on my domain**, type a handle (or click a suggestion) and your domain, and the final email fills in automatically, e.g. `alex.doe@yourdomain.com`. **Copy** puts it on the clipboard for the Plex signup.
+- The domain is remembered in this browser only; it is an admin setting, not customer data, and is never committed to the repository.
+- No mailbox is created: set up a catch-all forwarding rule for your domain (for example Cloudflare Email Routing) so that every address reaches your inbox.
 
 ## Version 0.1.4: IPTV members and clearer borders
 
